@@ -1,48 +1,36 @@
-import express from "express";
-import fetch from "node-fetch";
-import { default as vexpress } from "vercel-serverless-express";
+const express = require('express');
+const serverless = require('@vendia/serverless-express');
+const axios = require('axios');
+const NodeCache = require('node-cache');
 
-// Initialize Express app
+const cache = new NodeCache({ stdTTL: 3600 });
 const app = express();
-app.use(express.json());
 
-// UID API route
-app.get("/", async (req, res) => {
-  const { url } = req.query;
+app.get('/api/uid', async (req, res) => {
+  const fbUrl = req.query.url;
+  if (!fbUrl || !/^https:\/\/(www\.)?facebook\.com\/[^\/]+$/.test(fbUrl)) {
+    return res.status(400).json({ status: 'error', error: 'Invalid Facebook profile URL' });
+  }
 
-  if (!url || !(url.startsWith("https://facebook.com") || url.startsWith("https://www.facebook.com"))) {
-    return res.status(400).json({ status: "error", error: "Missing or invalid Facebook URL" });
+  if (cache.has(fbUrl)) {
+    return res.json({ status: 'success', uid: cache.get(fbUrl) });
   }
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0"
-      }
+    const { data } = await axios.get(fbUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
     });
-
-    const html = await response.text();
-
-    const patterns = [
-      /"entity_id":"(\d+)"/,
-      /"userID":"(\d+)"/,
-      /fb:\/\/profile\/(\d+)/,
-      /profile\.php\?id=(\d+)/
-    ];
-
-    for (const pattern of patterns) {
-      const match = html.match(pattern);
-      if (match) {
-        return res.status(200).json({ status: "success", uid: match[1] });
-      }
+    const match = data.match(/"userID":"(\d+)"/);
+    if (!match) {
+      return res.status(404).json({ status: 'error', error: 'UID not found' });
     }
 
-    return res.status(404).json({ status: "error", error: "UID not found – profile may be private or protected." });
-
+    const uid = match[1];
+    cache.set(fbUrl, uid);
+    res.json({ status: 'success', uid });
   } catch (err) {
-    return res.status(500).json({ status: "error", error: err.message });
+    res.status(500).json({ status: 'error', error: 'Failed to fetch Facebook data' });
   }
 });
 
-// Export the Express app using vercel-serverless-express
-export default vexpress({ app });
+module.exports = serverless({ app });
