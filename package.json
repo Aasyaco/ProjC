@@ -1,7 +1,11 @@
 {
   "name": "fb-uid-api",
   "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node api/index.js"
+  },
   "dependencies": {
-    "node-fetch": "^2.6.9"
+    "express": "^4.18.2"
   }
 }
