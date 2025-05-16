@@ -1,10 +1,19 @@
 {
-  "name": "fb-uid-api",
+  "name": "projc",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Facebook UID Extractor API (Vercel)",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev"
+  },
   "dependencies": {
-    "express": "^4.18.4",
-    "node-fetch": "^2.6.9",
-    "vercel-serverless-express": "^4.0.0"
-  }
+    "@vendia/serverless-express": "^4.6.0",
+    "axios": "^1.6.0",
+    "express": "^4.18.2",
+    "node-cache": "^5.1.2"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT"
 }
