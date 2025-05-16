@@ -1,56 +1,48 @@
-const fetch = require("node-fetch");
+import express from "express";
 
-module.exports = async (req, res) => {
-  const { url } = req.query;
+const app = express();
+app.use(express.json({ limit: "2mb" }));
 
-  if (!url || !url.includes("facebook.com")) {
-    return res.status(400).json({
-      status: "error",
-      error: "Invalid Facebook profile URL",
-    });
+const PORT = process.env.PORT || 3000;
+
+// Root endpoint
+app.get("/", (req, res) => {
+  res.json({
+    message: "Facebook UID Extractor API",
+    method: "POST",
+    endpoint: "/api",
+    body: {
+      content: "HTML content of the Facebook profile page"
+    }
+  });
+});
+
+// API endpoint
+app.post("/api", (req, res) => {
+  const { content } = req.body;
+
+  if (!content || typeof content !== "string") {
+    return res.status(400).json({ status: "error", error: "Missing or invalid 'content' field." });
   }
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/117 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-    });
+  const patterns = [
+    /"entity_id":"(\d+)"/,
+    /"userID":"(\d+)"/,
+    /fb:\/\/profile\/(\d+)/,
+    /profile\.php\?id=(\d+)/
+  ];
 
-    const html = await response.text();
-
-    const patterns = [
-      /entity_id":"(\d{4,})"/,
-      /"userID":"(\d+)"/,
-      /fb:\/\/profile\/(\d+)/,
-    ];
-
-    let uid = null;
-    for (const pattern of patterns) {
-      const match = html.match(pattern);
-      if (match) {
-        uid = match[1];
-        break;
-      }
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      return res.json({ status: "success", uid: match[1] });
     }
-
-    if (!uid) {
-      return res.status(404).json({
-        status: "error",
-        error: "UID not found – profile may be private or Facebook is blocking requests.",
-      });
-    }
-
-    return res.status(200).json({
-      status: "success",
-      uid,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      status: "error",
-      error: error.message,
-    });
   }
-};
+
+  return res.status(404).json({ status: "error", error: "UID not found – content may be stripped, private, or malformed." });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`✅ Server running at http://localhost:${PORT}`);
+});
