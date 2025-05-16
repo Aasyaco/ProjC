@@ -11,7 +11,6 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // First attempt: direct scraping
     const response = await fetch(url, {
       headers: {
         "User-Agent":
@@ -22,29 +21,31 @@ module.exports = async (req, res) => {
 
     const html = await response.text();
 
-    const match = html.match(/entity_id":"(\d{4,})"/) || html.match(/"userID":"(\d+)"/);
-    if (match) {
-      return res.status(200).json({
-        status: "success",
-        uid: match[1],
+    const patterns = [
+      /entity_id":"(\d{4,})"/,
+      /"userID":"(\d+)"/,
+      /fb:\/\/profile\/(\d+)/,
+    ];
+
+    let uid = null;
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match) {
+        uid = match[1];
+        break;
+      }
+    }
+
+    if (!uid) {
+      return res.status(404).json({
+        status: "error",
+        error: "UID not found – profile may be private or Facebook is blocking requests.",
       });
     }
 
-    // Second attempt: fallback to fbsearch.me
-    const fbsearch = await fetch(`https://fbsearch.me/fb/${encodeURIComponent(url)}`);
-    const fbtext = await fbsearch.text();
-    const fallbackMatch = fbtext.match(/UID: <b>(\d+)<\/b>/);
-
-    if (fallbackMatch) {
-      return res.status(200).json({
-        status: "success",
-        uid: fallbackMatch[1],
-      });
-    }
-
-    return res.status(404).json({
-      status: "error",
-      error: "UID not found in both primary and fallback",
+    return res.status(200).json({
+      status: "success",
+      uid,
     });
   } catch (error) {
     return res.status(500).json({
